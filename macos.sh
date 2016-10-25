@@ -10,6 +10,8 @@ while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 # see:
 #  - https://github.com/joeyhoer/starter/tree/master/system
 #  - https://github.com/ymendel/dotfiles/tree/master/osx
+#  - https://github.com/veteranmina/Mac-Scripts/blob/master/DisableFingerSwipe.sh
+#  - https://jamfnation.jamfsoftware.com/discussion.html?id=6994
 
 
 ###############################################################################
@@ -81,6 +83,8 @@ defaults write NSGlobalDomain AppleICUTimeFormatStrings -dict-add "<dict><key>4<
 # general
 defaults write com.apple.screensaver askForPassword -bool true    # require password after sleep
 defaults write com.apple.screensaver askForPasswordDelay -int 60  # delay by 60 seconds
+sudo spctl --master-disable                                       # allow applications downloaded from anywhere
+defaults write com.apple.LaunchServices LSQuarantine -bool false  # (extra) disable the “Are you sure you want to open this application?” dialog
 # filevault -- do it manually
 # firewall
 defaults write /Library/Preferences/com.apple.alf globalstate -bool false
@@ -111,16 +115,16 @@ defaults write com.apple.spotlight orderedItems -array \
 	'{"enabled" = 0;"name" = "MENU_WEBSEARCH";}' \
 	'{"enabled" = 0;"name" = "MENU_SPOTLIGHT_SUGGESTIONS";}'
 defaults write com.apple.Spotlight useCount 5 # (extra) stop spotlight onboarding
-sudo chmod 600 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search # (extra) hide Spotlight tray-icon (and subsequent helper)
-sudo defaults write /.Spotlight-V100/VolumeConfiguration Exclusions -array "/Volumes" # (extra) disable spotlight index on volumes
+chmod 600 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search # (extra) hide Spotlight tray-icon (and subsequent helper)
+defaults write /.Spotlight-V100/VolumeConfiguration Exclusions -array "/Volumes" # (extra) disable spotlight index on volumes
 # spotlight clean up
 killall mds > /dev/null 2>&1     # Load new settings before rebuilding the index
-sudo mdutil -i on / > /dev/null  # Make sure indexing is enabled for the main volume
-sudo mdutil -E / > /dev/null     # Rebuild the index from scratch
+mdutil -i on / > /dev/null  # Make sure indexing is enabled for the main volume
+mdutil -E / > /dev/null     # Rebuild the index from scratch
 
 # 8. Notifications -- TODO
 
-# 9. Displays -- TODO
+# 9. Displays
 defaults write com.apple.BezelServices dAuto -bool false                     # automatically adjust display brightness
 defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor "Automatic Display Enabled" -bool false
 defaults write com.apple.airplay showInMenuBarIfPresent -bool false          # show mirroring options in the menu bar when avaliable
@@ -129,7 +133,24 @@ defaults write com.apple.screencapture type -string "png"      	             # (
 defaults write com.apple.screencapture disable-shadow -bool true             # (extra) disable shadow in screenshots
 defaults write /Library/Preferences/com.apple.windowserver DisplayResolutionEnabled -bool true # (extra) enable HiDPI display modes (requires restart)
 
-# 10. Energy Saver -- TODO
+# 10. Energy Saver
+IS_LAPTOP=`/usr/sbin/system_profiler SPHardwareDataType 2>/dev/null | grep "Model Identifier" | grep "Book"`
+if [[ "$IS_LAPTOP" != "" ]]; then
+    # notebook on battery
+    sudo pmset -b sleep 90 disksleep 90 displaysleep 45 halfdim 0 powernap 1
+    # notebook on power Adapter
+    sudo pmset -c sleep 0 disksleep 0 displaysleep 0 halfdim 0 autorestart 1 womp 0 powernap 1
+else
+    # desktop
+    sudo pmset sleep 0 disksleep 0 displaysleep 30 halfdim 0
+fi
+sudo pmset -a lessbright 0                              # disable dim display on battery
+sudo systemsetup -setcomputersleep Never > /dev/null    #
+sudo pmset -a hibernatemode 0                           # (extra) disable hibernation (speeds up entering sleep mode)
+sudo pmset -a standbydelay 86400                        # (extra) set standby delay to 24 hours (default is 1 hour)
+sudo pmset -a standby 0                                 #
+sudo pmset -a autopoweroff 0                            #
+sudo pmset -a sms 0                                     # (extra) disable the sudden motion sensor as it’s not useful for SSDs
 
 # 11. Keyboard -- TODO
 # keyboard
@@ -225,7 +246,7 @@ defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disabl
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable turn zoom on or off (none)
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable turn image smoothing on or off
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable zoom out
-defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable zoom in 
+defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable zoom in
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable turn focus following on or off
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable increase constrast
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable decrease constrast
@@ -233,10 +254,63 @@ defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disabl
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable turn voiceover on or off
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable show accessibility controls
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add # disable show help menu
+defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false # (extra) press-and-hold = key repeat
+defaults write NSGlobalDomain KeyRepeat -float 0.000000000001 #  (extra) fast key repeat rate
+defaults write NSGlobalDomain InitialKeyRepeat -int 10 # (extra) key repeat delay
+defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false # (extra) disable smart quotes
+defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false # (extra) disable smart dashes
+defaults write NSGlobalDomain NSUserQuotesArray -array '"\""' '"\""' '"'\''"' '"'\''"' # (extra) set double and single quotes
+defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false # (extra) disable autocorrect spelling
 
 # 12. Mouse -- TODO
 
+
 # 13. Trackpad -- TODO
+defaults write com.apple.AppleMultitouchTrackpad.plist Clicking -bool false
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false                 # no tap to click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadCornerSecondaryClick -int 0  # disable right-click via bottome right corner
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false  # no tap to click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false  # no tap to click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false  # no tap to click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false  # no tap to click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false  # no tap to click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false  # no tap to click
+
+###############################################################################
+# Trackpad, mouse, keyboard, Bluetooth accessories, and input                 #
+###############################################################################
+
+# Trackpad: enable tap to click for this user and for the login screen
+defaults write com.apple.AppleMultitouchTrackpad.plist Clicking -bool false
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool false
+defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+
+# Trackpad: map bottom right corner to right-click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadRightClick -bool true
+defaults -currentHost write NSGlobalDomain com.apple.trackpad.trackpadCornerClickBehavior -int 1
+defaults -currentHost write NSGlobalDomain com.apple.trackpad.enableSecondaryClick -bool true
+
+# Disable “natural” (Lion-style) scrolling
+defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
+
+# Increase sound quality for Bluetooth headphones/headsets
+defaults write com.apple.BluetoothAudioAgent "Apple Bitpool Min (editable)" -int 40
+
+# Enable full keyboard access for all controls
+# (e.g. enable Tab in modal dialogs)
+defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
+
+# Follow the keyboard focus while zoomed in
+defaults write com.apple.universalaccess closeViewZoomFollowsFocus -bool true
+
+# Disable auto-correct
+defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+
+# Stop iTunes from responding to the keyboard media keys
+#launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist 2> /dev/null
+
+
 
 # 14. Printers & Scanners -- TODO
 
@@ -269,6 +343,24 @@ systemsetup -settimezone "Europe/Brussels" > /dev/null
 # 27. Time Machine -- TODO
 
 # 28. Accessibility -- TODO
+# Use scroll gesture with the Ctrl (^) modifier key to zoom
+defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
+defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
+
+
+
+###############################################################################
+#                                                                             #
+# App: Terminal                                                               #
+#                                                                             #
+###############################################################################
+sudo open "./Default.terminal"
+sleep 1  # wait a bit to make sure the theme is loaded
+defaults write com.apple.Terminal "Default Window Settings" -string "Default"
+defaults write com.apple.Terminal "Startup Window Settings" -string "Default"
+defaults write com.apple.Terminal SecureKeyboardEntry -bool true
+defaults write com.apple.Terminal StringEncodings -array "<integer>4</integer>"
+
 
 
 ###############################################################################
@@ -291,6 +383,9 @@ systemsetup -settimezone "Europe/Brussels" > /dev/null
 
 
 
+
+
+
 # -----------------------------------------------------------------------------
 
 
@@ -302,13 +397,10 @@ systemsetup -settimezone "Europe/Brussels" > /dev/null
 ###############################################################################
 
 # Set computer name (as done via System Preferences → Sharing)
-#sudo scutil --set ComputerName "0x6D746873"
-#sudo scutil --set HostName "0x6D746873"
-#sudo scutil --set LocalHostName "0x6D746873"
-#sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "0x6D746873"
-
-# Set standby delay to 24 hours (default is 1 hour)
-sudo pmset -a standbydelay 86400
+sudo scutil --set ComputerName "MacBook-Pro"
+sudo scutil --set HostName "MacBook-Pro"
+sudo scutil --set LocalHostName "MacBook-Pro"
+sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "MacBook-Pro"
 
 # Disable the sound effects on boot
 sudo nvram SystemAudioVolume=" "
@@ -394,9 +486,6 @@ sudo defaults write /Library/Preferences/com.apple.loginwindow AdminHostInfo Hos
 # Restart automatically if the computer freezes
 sudo systemsetup -setrestartfreeze on
 
-# Never go into computer sleep mode
-sudo systemsetup -setcomputersleep Off > /dev/null
-
 # Disable Notification Center and remove the menu bar icon
 launchctl unload -w /System/Library/LaunchAgents/com.apple.notificationcenterui.plist 2> /dev/null
 
@@ -416,61 +505,12 @@ defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
 # SSD-specific tweaks                                                         #
 ###############################################################################
 
-# Disable hibernation (speeds up entering sleep mode)
-sudo pmset -a hibernatemode 0
-
 # Remove the sleep image file to save disk space
 sudo rm /private/var/vm/sleepimage
 # Create a zero-byte file instead…
 sudo touch /private/var/vm/sleepimage
 # …and make sure it can’t be rewritten
 sudo chflags uchg /private/var/vm/sleepimage
-
-# Disable the sudden motion sensor as it’s not useful for SSDs
-sudo pmset -a sms 0
-
-###############################################################################
-# Trackpad, mouse, keyboard, Bluetooth accessories, and input                 #
-###############################################################################
-
-# Trackpad: enable tap to click for this user and for the login screen
-defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
-defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
-defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
-
-# Trackpad: map bottom right corner to right-click
-defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadCornerSecondaryClick -int 2
-defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadRightClick -bool true
-defaults -currentHost write NSGlobalDomain com.apple.trackpad.trackpadCornerClickBehavior -int 1
-defaults -currentHost write NSGlobalDomain com.apple.trackpad.enableSecondaryClick -bool true
-
-# Disable “natural” (Lion-style) scrolling
-defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
-
-# Increase sound quality for Bluetooth headphones/headsets
-defaults write com.apple.BluetoothAudioAgent "Apple Bitpool Min (editable)" -int 40
-
-# Enable full keyboard access for all controls
-# (e.g. enable Tab in modal dialogs)
-defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
-
-# Use scroll gesture with the Ctrl (^) modifier key to zoom
-defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
-defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
-# Follow the keyboard focus while zoomed in
-defaults write com.apple.universalaccess closeViewZoomFollowsFocus -bool true
-
-# Disable press-and-hold for keys in favor of key repeat
-defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
-
-# Set a blazingly fast keyboard repeat rate
-defaults write NSGlobalDomain KeyRepeat -float 0.000000000001
-
-# Disable auto-correct
-defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
-
-# Stop iTunes from responding to the keyboard media keys
-#launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist 2> /dev/null
 
 
 ###############################################################################
@@ -753,59 +793,6 @@ defaults write com.apple.mail DisableInlineAttachmentViewing -bool true
 # Disable automatic spell checking
 defaults write com.apple.mail SpellCheckingBehavior -string "NoSpellCheckingEnabled"
 
-###############################################################################
-# Terminal & iTerm 2                                                          #
-###############################################################################
-
-# Only use UTF-8 in Terminal.app
-defaults write com.apple.terminal StringEncodings -array 4
-
-# Use a modified version of the Solarized Dark theme by default in Terminal.app
-osascript <<EOD
-
-tell application "Terminal"
-
-	local allOpenedWindows
-	local initialOpenedWindows
-	local windowID
-	set themeName to "Solarized Dark xterm-256color"
-
-	(* Store the IDs of all the open terminal windows. *)
-	set initialOpenedWindows to id of every window
-
-	(* Open the custom theme so that it gets added to the list
-	   of available terminal themes (note: this will open two
-	   additional terminal windows). *)
-	do shell script "open '$HOME/init/" & themeName & ".terminal'"
-
-	(* Wait a little bit to ensure that the custom theme is added. *)
-	delay 1
-
-	(* Set the custom theme as the default terminal theme. *)
-	set default settings to settings set themeName
-
-	(* Get the IDs of all the currently opened terminal windows. *)
-	set allOpenedWindows to id of every window
-
-	repeat with windowID in allOpenedWindows
-
-		(* Close the additional windows that were opened in order
-		   to add the custom theme to the list of terminal themes. *)
-		if initialOpenedWindows does not contain windowID then
-			close (every window whose id is windowID)
-
-		(* Change the theme for the initial opened terminal windows
-		   to remove the need to close them in order for the custom
-		   theme to be applied. *)
-		else
-			set current settings of tabs of (every window whose id is windowID) to settings set themeName
-		end if
-
-	end repeat
-
-end tell
-
-EOD
 
 # Enable “focus follows mouse” for Terminal.app and all X11 apps
 # i.e. hover over a window and start typing in it without clicking first
